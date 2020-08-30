@@ -1,0 +1,1508 @@
+
+source("E:/Référentiel/Pgm/cw_macros.r") #package contenant des fonctions prédéfinis pour le traitement des données
+source("E:/Référentiel/Pgm/Blanchiment.R")
+
+car="E:/Référentiel/ref/GEO/Carreaux/tables"
+out="E:/Equipe Etudes et Connaissance Client/Mouhamadou/typo_carreaux_2015 USED/out"
+int_loc= "E:/Equipe Etudes et Connaissance Client/Mouhamadou/Impact_typo_carreaux NOT USED/new typo/int_files"
+refcar="E:/Référentiel/TYPOS/carreau2015"
+
+options(scipen=999)
+
+
+cwusepack("FactoMineR")
+#cwusepack("factoextra")
+
+
+
+#contient les données des carreaux de base et les données agréées par groupe
+#les variables prefixées sum_ sont les agrégations des variables des carreaux au niveaux
+# toutes les variables de la typo ont été calculées au niveau groupe
+
+doncar=impr("df_doncar_full_grouperec_v2",int_loc,"doncar") 
+
+
+
+effidk=doncar[!duplicated(doncar$idk),c("idk","sum_Men")]
+
+
+
+#création des variables
+
+doncar$pct_mais=doncar$sum_Men_mais/doncar$sum_Men #cette variable ne sera pas retenu
+doncar$pct_coll=doncar$sum_Men_coll/doncar$sum_Men
+doncar$pct_seul=doncar$sum_Men_1ind/doncar$sum_Men
+doncar$pct_propr=doncar$sum_Men_prop/doncar$sum_Men
+doncar$rev_win_nind=doncar$sum_Ind_snv/doncar$sum_Ind ## somme des niveaux de vie rapportée aux nombre d'individus
+doncar$rev_win_nmen=doncar$sum_Ind_snv/doncar$sum_Men ## somme des niveaux de vie rapportée aux nombre d'individus
+doncar$pct_bas_rev=doncar$sum_Men_pauv/doncar$sum_Men
+doncar$tx_enf=(doncar$sum_Ind_0_3+doncar$sum_Ind_4_5+doncar$sum_Ind_6_10+doncar$sum_Ind_11_17)/doncar$sum_Ind
+doncar$tx_ages=(doncar$sum_Ind_65_79+doncar$sum_Ind_80p)/doncar$sum_Ind
+doncar$tx_5pers=(doncar$Men_5ind)/doncar$Ind
+doncar$tx_surfmoy=(doncar$Men_surf)/doncar$Men
+
+doncar$pct_log90p=doncar$sum_Log_ap90/doncar$sum_Men
+doncar$pct_logmoy=(doncar$sum_Log_45_70+doncar$sum_Log_70_90)/doncar$sum_Men
+doncar$pct_loganc=doncar$sum_Log_av45/doncar$sum_Men
+doncar$pct_fmp=doncar$sum_Men_fmp/doncar$sum_Men
+
+
+
+dd=doncar
+
+quantile(dd$rev_win,0.1*0:10)
+#dd$rev_win2=pmax(13000,dd$rev_win)
+#dd$rev_win2=pmin(25000,dd$rev_win2)
+#quantile(dd$rev_win2,0.05*0:20)
+
+#dd$xalimp=log(dd$alimp+1)
+#dd$xalim1=sqrt(dd$alim1)
+
+# identification des variables utiles
+
+nd=names(dd1)
+
+nd=nd[!(nd %in% c("idINSPIRE","iris","idk","alea","x","y","id"))]
+
+
+nr=nrow(dd1)
+
+ax=paste(paste0(nd,"=rank(",nd,")/nr"),collapse=",")
+
+cwexec(paste0("dd2=dd1 %>% mutate(",ax,")"))
+
+d=doncar[!duplicated(doncar$idk),]
+echant1=dd1[dd1$alea<0.04,]
+
+echant=dd2[dd2$alea<0.04,]
+
+#################################### création de 2 échantillons au niveau données et rang des variables ##############################
+gc()
+#sauvegarde des échantillons sur le dossier out 
+#Attention changer le repertoire out pour ne pas écraser les dossier déjà existants
+expr("echant",out)
+expr("echant1",out)
+expr("effidk",out)
+expr("dd1",out)
+expr("dd2",out)
+
+impr("echant",out)
+impr("echant1",out)
+impr("effidk",out)
+impr("dd1",out)
+impr("dd2",out)
+
+
+#####supression de certaines variables
+echant$iris=NULL
+echant$idINSPIRE=NULL
+echant$INSEE=NULL
+echant$iris=NULL
+echant$tuu0=NULL
+echant$tuu1=NULL
+echant$tuu2=NULL
+echant$tuu3=NULL
+echant$tuu4=NULL
+echant$tuu5=NULL
+echant$tuu6=NULL
+echant$tuu7=NULL
+echant$tuu8=NULL
+echant$alea=NULL
+echant$alimp=NULL
+echant$suphypp=NULL
+echant$id=NULL
+echant$x=NULL
+echant$y=NULL
+echant$proxalim=NULL
+echant$habil2=NULL
+
+
+
+#####supression de certaines variables
+echant1$iris=NULL
+echant1$idINSPIRE=NULL
+echant1$INSEE=NULL
+echant1$iris=NULL
+echant1$tuu0=NULL
+echant1$tuu1=NULL
+echant1$tuu2=NULL
+echant1$tuu3=NULL
+echant1$tuu4=NULL
+echant1$tuu5=NULL
+echant1$tuu6=NULL
+echant1$tuu7=NULL
+echant1$tuu8=NULL
+echant1$alea=NULL
+echant1$alimp=NULL
+echant1$suphypp=NULL
+echant1$id=NULL
+echant1$x=NULL
+echant1$y=NULL
+echant1$proxalim=NULL
+echant1$habil2=NULL
+
+
+echant=..drop(echant,"Dim:")
+
+
+da=echant[,-1]
+
+myncp=10
+
+##################################### PCA des variables ######################################################
+res.pca = PCA(da, scale.unit=T, ncp=myncp, graph=T)
+res.pca$eig
+
+str(res.pca)
+res.pca$var$coord
+res.pca$ind$coord
+pca=as.data.frame(res.pca$ind$coord)
+names(pca)=gsub(" ","",names(pca))
+
+zz=cbind(da,pca)
+nn=names(da)
+
+vars=paste(nn,collapse="+")
+
+cwexec(paste0("mod",1:myncp,"=lm(Dim.",1:myncp," ~ ",vars,", data=zz)"))
+
+#for (n in nn) {
+#  print (n)
+#  print(cwrens(dd2[,n]))
+#}
+
+for (i in 1:myncp) {
+  
+cwexec(paste0("mod=mod",i))
+
+a=as.data.frame(mod$coefficients)
+names(a)="coef"
+a$var=row.names(a)
+a$form=paste0("(",a$coef,")*dd2$",a$var)
+a$form[a$var=="(Intercept)"]=a$coef[a$var=="(Intercept)"]
+form=paste0("dd2$Dim.",i,"=",paste(a$form,collapse="+"))
+
+cwexec(form)
+
+}
+Sys.time()
+dist_mat <- dist(pca, method = 'euclidean')
+Sys.time()
+
+hclust_avg <- hclust(dist_mat, method = 'average')
+plot(hclust_avg)
+Sys.time()
+
+rm(dist_mat)
+rm(doncar)
+
+gc()
+
+dz=..keep(zz,"Dim:")
+
+varexpl=numeric()
+
+for (ka in 1:200) {
+
+    print(ka)
+  
+    zz$clust <- cutree(hclust_avg, k = ka)
+    
+    cwexec(paste0("kk=",paste0("var(zz$Dim.",1:myncp,")",collapse="+")))
+    
+    cwexec(paste0("kz=zz %>% group_by(clust) %>% summarise(nb=n(),",paste0("Dim",1:myncp,"=var(Dim.",1:myncp,")",collapse=","),")"))
+    
+    cwexec(paste0("kz$Dim=",paste0("(kz$nb*kz$Dim",1:myncp,"/sum(kz$nb))",collapse="+")))
+    
+    
+    ax=paste(paste0(nn,"=mean(",nn,",na.rm=T)"),collapse=",")
+    
+    cwexec(paste0("zz2=zz %>% group_by (clust) %>% summarise(nb=n(),",ax,")"))
+    
+    varexpl[ka]=1-sum(kz$Dim,na.rm=T)/kk
+
+}
+
+
+
+nbc=1:length(varexpl)
+
+
+vstat=cbind.data.frame(nbc,varexpl)
+
+expo(vstat,out)
+
+
+zz$clust <- cutree(hclust_avg, k = 150)
+ax=paste(paste0(nn,"=mean(",nn,",na.rm=T)"),collapse=",")
+
+cwexec(paste0("zz2=zz %>% group_by (clust) %>% summarise(nb=n(),",ax,")"))
+
+zz3=zz2[zz2$nb>15,]
+
+ax=paste(paste0("xDim.",1:myncp,"=mean(Dim.",1:myncp,",na.rm=T)"),collapse=",")
+
+cwexec(paste0("zz4=zz %>% group_by (clust) %>% summarise(nb=n(),",ax,")"))
+
+zz4=zz4[zz4$nb>15,]
+
+
+dd2$un=1
+zz4$un=1
+
+dim=paste0("Dim.",1:myncp)
+dd3=dd2[,c("un","idINSPIRE",dim)]
+dd3=as.data.table(dd3)
+
+dim=paste0("xDim.",1:myncp)
+zz5=zz4[,c("un","clust",dim)]
+zz5=as.data.table(zz5)
+
+
+
+tdeb=Sys.time()
+#####matching des autres carreaux aux différentes classes par kmeans
+for (i in 0:floor(nrow(dd3)/100000)) {
+  
+  print(i)
+        
+        mdd=dd3[(i*100000+1):min((i+1)*100000,nrow(dd3)),]
+        
+        
+        pcart<-setkey(zz5,un)[mdd,allow.cartesian=TRUE]
+        
+        cwexec(paste0("pcart$dist=(",paste0("(pcart$Dim.",1:myncp,"-pcart$xDim.",1:myncp,")^2",collapse="+"),")"))
+        
+        pcart=pcart[,c("idINSPIRE","clust","dist")]
+        gc()
+        
+        v=pcart %>%
+            group_by(idINSPIRE) %>%
+            mutate(dmin=min(dist)) %>%
+            filter(dist==dmin) %>%
+            select(-dist,-dmin)
+        
+        rm(pcart)
+        gc()
+        
+        if (i==0) { affclust=v } else {affclust=rbind(affclust,v)}
+        
+  
+}
+
+
+tfin=Sys.time()
+tfin-tdeb
+
+
+max((table(affclust$clust)))
+min(cwmix(affclust$clust)$mix)
+
+dd1$clust=affclust$clust[match(dd1$idINSPIRE,affclust$idINSPIRE)]
+dd1$men=effidk$men[match(dd1$idk,effidk$idk)]
+
+
+nd=names(dd1)[4:32]
+nd=nd[nd!="INSEE"]
+nd=nd[nd!="x"]
+nd=nd[nd!="y"]
+nd=nd[nd!="id"]
+nd=nd[nd!="alea"]
+nd=nd[nd!="alimp"]
+nd=nd[nd!="proxalim"]
+nd=nd[nd!="suphypp"]
+nd=nd[nd!="tuu"]
+
+
+#quantile(dd$rev_win,0:20*0.05)
+#quantile(dd$pct_propr,0:20*0.05)
+
+
+ax=paste(paste0(nd,"_moy=mean(",nd,",na.rm=T)"),collapse=",")
+
+cwexec(paste0("moyclus=dd1 %>% group_by(clust) %>% summarise(cnb=n(),cnbmen=sum(men),",ax,")"))
+
+
+
+ax=paste(paste0(nd,"_q95=quantile(",nd,",0.95,na.rm=T)"),collapse=",")
+
+cwexec(paste0("q95clus=dd1 %>% group_by(clust) %>% summarise(",ax,")"))
+
+
+ax=paste(paste0(nd,"_05=quantile(",nd,",0.05,na.rm=T)"),collapse=",")
+
+cwexec(paste0("q05clus=dd1 %>% group_by(clust) %>% summarise(",ax,")"))
+
+
+#ax=paste(paste0(nd,"_mn=min(",nd,",na.rm=T)"),collapse=",")
+
+#cwexec(paste0("minclus=dd %>% group_by(clust) %>% summarise(nb=n(),",ax,")"))
+
+
+#ax=paste(paste0(nd,"_mx=max(",nd,",na.rm=T)"),collapse=",")
+
+#cwexec(paste0("maxclus=dd %>% group_by(clust) %>% summarise(nb=n(),",ax,")"))
+
+statclus=merge(moyclus,q05clus,"clust")
+statclus=merge(statclus,q95clus,"clust")
+a=names(statclus)
+a=a[!grepl("^tuu[0-9]*_05",a)]
+a=a[!grepl("^tuu[0-9]*_q95",a)]
+
+
+statclus=statclus[,a]
+statclus=statclus[,order(names(statclus))]
+
+expo("statclus",out,"statclus150rg2")
+#expo("maxclus",out)
+#expo("q05clus",out)
+#expo("q95clus",out)
+
+######################PCA sur le second echantillon######################################"
+
+da1=echant1[,-1]
+
+myncp1=15
+
+
+res.pca = PCA(da1, scale.unit=T, ncp=myncp1, graph=T)
+res.pca$eig
+
+str(res.pca)
+res.pca$var$coord
+res.pca$ind$coord
+pca=as.data.frame(res.pca$ind$coord)
+names(pca)=gsub(" ","",names(pca))
+
+zz1=cbind(da1,pca)
+nn=names(da1)
+
+vars=paste(nn,collapse="+")
+
+cwexec(paste0("mod",1:myncp1,"=lm(Dim.",1:myncp1," ~ ",vars,", data=zz1)"))
+
+#for (n in nn) {
+#  print (n)
+#  print(cwrens(dd2[,n]))
+#}
+
+for (i in 1:myncp1) {
+  
+  cwexec(paste0("mod=mod",i))
+  
+  a=as.data.frame(mod$coefficients)
+  names(a)="coef"
+  a$var=row.names(a)
+  a$form=paste0("(",a$coef,")*dd1$",a$var)
+  a$form[a$var=="(Intercept)"]=a$coef[a$var=="(Intercept)"]
+  form=paste0("dd1$Dim.",i,"=",paste(a$form,collapse="+"))
+  
+  cwexec(form)
+  
+}
+
+
+var(dd1$Dim.1,na.rm=T)
+
+cwexec(paste0("kk=",paste0("var(dd1$Dim.",1:myncp1,",na.rm=T)",collapse="+")))
+
+cwexec(paste0("kz=dd1 %>% group_by(clust) %>% summarise(nb=n(),",paste0("Dim",1:myncp1,"=var(Dim.",1:myncp1,",na.rm=T)",collapse=","),")"))
+
+cwexec(paste0("kz$Dim=",paste0("(kz$nb*kz$Dim",1:myncp,"/sum(kz$nb))",collapse="+")))
+
+
+ax=paste(paste0(nn,"=mean(",nn,",na.rm=T)"),collapse=",")
+
+cwexec(paste0("zz2=zz %>% group_by (clust) %>% summarise(nb=n(),",ax,")"))
+
+varexpl150rg2=1-sum(kz$Dim,na.rm=T)/kk
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+source("E:/Référentiel/Pgm/cw_macros.r")
+source("E:/Référentiel/Pgm/Enrichissement.R")
+source("E:/Référentiel/Pgm/Blanchiment.R")
+
+options(scipen=999)
+car="E:/Référentiel/ref/GEO/Carreaux/tables"
+out="E:/Equipe Etudes et Connaissance Client/Mouhamadou/typo_carreaux_2015 USED/out"
+int_loc= "E:/Equipe Etudes et Connaissance Client/Mouhamadou/Impact_typo_carreaux NOT USED/new typo/int_files"
+refcar="E:/Référentiel/TYPOS/carreau2015"
+
+cwusepack("FactoMineR")
+cwusepack("factoextra")
+
+setwd(car)
+
+out= "C:/Users/mka/Documents/new typo/out"
+  
+##### suppression de certaines variables
+##### suppression de certaines variables
+impr("echant",out)
+impr("echant1",out)
+impr("effidk",out)
+impr("dd1",out)
+impr("dd2",out)
+
+gc()
+
+echant$iris=NULL
+echant$idINSPIRE=NULL
+echant$INSEE=NULL
+echant$iris=NULL
+echant$tuu0=NULL
+echant$tuu1=NULL
+echant$tuu2=NULL
+echant$tuu3=NULL
+echant$tuu4=NULL
+echant$tuu5=NULL
+echant$tuu6=NULL
+echant$tuu7=NULL
+echant$tuu8=NULL
+echant$alea=NULL
+echant$alimp=NULL
+echant$suphypp=NULL
+echant$id=NULL
+echant$x=NULL
+echant$y=NULL
+echant$proxalim=NULL
+echant$habil2=NULL
+
+
+
+echant1$iris=NULL
+echant1$idINSPIRE=NULL
+echant1$INSEE=NULL
+echant1$iris=NULL
+echant1$tuu0=NULL
+echant1$tuu1=NULL
+echant1$tuu2=NULL
+echant1$tuu3=NULL
+echant1$tuu4=NULL
+echant1$tuu5=NULL
+echant1$tuu6=NULL
+echant1$tuu7=NULL
+echant1$tuu8=NULL
+echant1$alea=NULL
+echant1$alimp=NULL
+echant1$suphypp=NULL
+echant1$id=NULL
+echant1$x=NULL
+echant1$y=NULL
+echant1$proxalim=NULL
+echant1$habil2=NULL
+
+
+echant=..drop(echant,"Dim:")
+
+
+da=echant[,-15]
+
+myncp=12
+
+
+res.pca = PCA(da, scale.unit=T, ncp=myncp, graph=T)
+res.pca$eig
+
+str(res.pca)
+res.pca$var$coord
+res.pca$ind$coord
+pca=as.data.frame(res.pca$ind$coord)
+names(pca)=gsub(" ","",names(pca))
+
+zz=cbind(da,pca)
+nn=names(da)
+
+vars=paste(nn,collapse="+")
+
+cwexec(paste0("mod",1:myncp,"=lm(Dim.",1:myncp," ~ ",vars,", data=zz)"))
+
+#for (n in nn) {
+#  print (n)
+#  print(cwrens(dd2[,n]))
+#}
+
+for (i in 1:myncp) {
+  
+cwexec(paste0("mod=mod",i))
+
+a=as.data.frame(mod$coefficients)
+names(a)="coef"
+a$var=row.names(a)
+a$form=paste0("(",a$coef,")*dd2$",a$var)
+a$form[a$var=="(Intercept)"]=a$coef[a$var=="(Intercept)"]
+form=paste0("dd2$Dim.",i,"=",paste(a$form,collapse="+"))
+
+cwexec(form)
+
+}
+Sys.time()
+dist_mat <- dist(pca, method = 'euclidean')
+Sys.time()
+
+hclust_avg <- hclust(dist_mat, method = 'average')
+plot(hclust_avg)
+Sys.time()
+
+rm(dist_mat)
+
+
+gc()
+
+dz=..keep(zz,"Dim:")
+
+varexpl=numeric()
+
+for (ka in 1:200) {
+
+    print(ka)
+  
+    zz$clust <- cutree(hclust_avg, k = ka)
+    
+    cwexec(paste0("kk=",paste0("var(zz$Dim.",1:myncp,")",collapse="+")))
+    
+    cwexec(paste0("kz=zz %>% group_by(clust) %>% summarise(nb=n(),",paste0("Dim",1:myncp,"=var(Dim.",1:myncp,")",collapse=","),")"))
+    
+    cwexec(paste0("kz$Dim=",paste0("(kz$nb*kz$Dim",1:myncp,"/sum(kz$nb))",collapse="+")))
+    
+    
+    ax=paste(paste0(nn,"=mean(",nn,",na.rm=T)"),collapse=",")
+    
+    cwexec(paste0("zz2=zz %>% group_by (clust) %>% summarise(nb=n(),",ax,")"))
+    
+    varexpl[ka]=1-sum(kz$Dim,na.rm=T)/kk
+
+}
+
+
+
+nbc=1:length(varexpl)
+
+
+vstat=cbind.data.frame(nbc,varexpl)
+
+expo(vstat,out)
+
+
+zz$clust <- cutree(hclust_avg, k = 150)
+ax=paste(paste0(nn,"=mean(",nn,",na.rm=T)"),collapse=",")
+
+cwexec(paste0("zz2=zz %>% group_by (clust) %>% summarise(nb=n(),",ax,")"))
+
+zz3=zz2[zz2$nb>15,]
+
+ax=paste(paste0("xDim.",1:myncp,"=mean(Dim.",1:myncp,",na.rm=T)"),collapse=",")
+
+cwexec(paste0("zz4=zz %>% group_by (clust) %>% summarise(nb=n(),",ax,")"))
+
+zz4=zz4[zz4$nb>15,]
+
+
+dd2$un=1
+zz4$un=1
+
+dim=paste0("Dim.",1:myncp)
+dd3=dd2[,c("un","idINSPIRE",dim)]
+dd3=as.data.table(dd3)
+
+dim=paste0("xDim.",1:myncp)
+zz5=zz4[,c("un","clust",dim)]
+zz5=as.data.table(zz5)
+
+
+
+tdeb=Sys.time()
+
+for (i in 0:6) {
+  
+  print(i)
+        
+        mdd=dd3[(i*100000+1):min((i+1)*100000,nrow(dd3)),]
+        
+        
+        pcart<-setkey(zz5,un)[mdd,allow.cartesian=TRUE]
+        
+        cwexec(paste0("pcart$dist=(",paste0("(pcart$Dim.",1:myncp,"-pcart$xDim.",1:myncp,")^2",collapse="+"),")"))
+        
+        pcart=pcart[,c("idINSPIRE","clust","dist")]
+        gc()
+        
+        v=pcart %>%
+            group_by(idINSPIRE) %>%
+            mutate(dmin=min(dist)) %>%
+            filter(dist==dmin) %>%
+            select(-dist,-dmin)
+        
+        rm(pcart)
+        gc()
+        
+        if (i==0) { affclust=v } else {affclust=rbind(affclust,v)}
+        
+  
+}
+
+
+tfin=Sys.time()
+tfin-tdeb
+
+
+max((table(affclust$clust)))
+min(cwmix(affclust$clust)$mix)
+
+dd1$clust=affclust$clust[match(dd1$idINSPIRE,affclust$idINSPIRE)]
+dd1$men=effidk$men[match(dd1$idk,effidk$idk)]
+
+x=dd1[,c("idk","clust")]
+expr("x",out,"aff_idk_clust_150")
+
+nd=names(dd1)[3:31]
+nd=nd[nd!="INSEE"]
+nd=nd[nd!="x"]
+nd=nd[nd!="idk"]
+nd=nd[nd!="y"]
+nd=nd[nd!="id"]
+nd=nd[nd!="alea"]
+nd=nd[nd!="alimp"]
+nd=nd[nd!="proxalim"]
+nd=nd[nd!="suphypp"]
+nd=nd[nd!="tuu"]
+
+
+#quantile(dd$rev_win,0:20*0.05)
+#quantile(dd$pct_propr,0:20*0.05)
+
+
+ax=paste(paste0(nd,"_moy=mean(",nd,",na.rm=T)"),collapse=",")
+
+cwexec(paste0("moyclus=dd1 %>% group_by(clust) %>% summarise(cnb=n(),cnbmen=sum(men),",ax,")"))
+
+
+
+ax=paste(paste0(nd,"_q95=quantile(",nd,",0.95,na.rm=T)"),collapse=",")
+
+cwexec(paste0("q95clus=dd1 %>% group_by(clust) %>% summarise(",ax,")"))
+
+
+ax=paste(paste0(nd,"_05=quantile(",nd,",0.05,na.rm=T)"),collapse=",")
+
+cwexec(paste0("q05clus=dd1 %>% group_by(clust) %>% summarise(",ax,")"))
+
+
+#ax=paste(paste0(nd,"_mn=min(",nd,",na.rm=T)"),collapse=",")
+
+#cwexec(paste0("minclus=dd %>% group_by(clust) %>% summarise(nb=n(),",ax,")"))
+
+
+#ax=paste(paste0(nd,"_mx=max(",nd,",na.rm=T)"),collapse=",")
+
+#cwexec(paste0("maxclus=dd %>% group_by(clust) %>% summarise(nb=n(),",ax,")"))
+
+statclus=merge(moyclus,q05clus,"clust")
+statclus=merge(statclus,q95clus,"clust")
+a=names(statclus)
+a=a[!grepl("^tuu[0-9]*_05",a)]
+a=a[!grepl("^tuu[0-9]*_q95",a)]
+
+
+statclus=statclus[,a]
+statclus=statclus[,order(names(statclus))]
+
+expo("statclus",out,"statclus150rg2_maj2")
+#expo("maxclus",out)
+#expo("q05clus",out)
+#expo("q95clus",out)
+
+
+
+da1=echant1[,-15]
+
+myncp1=12
+
+
+res.pca = PCA(da1, scale.unit=T, ncp=myncp1, graph=T)
+res.pca$eig
+
+str(res.pca)
+res.pca$var$coord
+res.pca$ind$coord
+pca=as.data.frame(res.pca$ind$coord)
+names(pca)=gsub(" ","",names(pca))
+
+zz1=cbind(da1,pca)
+nn=names(da1)
+
+vars=paste(nn,collapse="+")
+
+cwexec(paste0("mod",1:myncp1,"=lm(Dim.",1:myncp1," ~ ",vars,", data=zz1)"))
+
+#for (n in nn) {
+#  print (n)
+#  print(cwrens(dd2[,n]))
+#}
+
+for (i in 1:myncp1) {
+  
+  cwexec(paste0("mod=mod",i))
+  
+  a=as.data.frame(mod$coefficients)
+  names(a)="coef"
+  a$var=row.names(a)
+  a$form=paste0("(",a$coef,")*dd1$",a$var)
+  a$form[a$var=="(Intercept)"]=a$coef[a$var=="(Intercept)"]
+  form=paste0("dd1$Dim.",i,"=",paste(a$form,collapse="+"))
+  
+  cwexec(form)
+  
+}
+
+
+var(dd1$Dim.1,na.rm=T)
+
+cwexec(paste0("kk=",paste0("var(dd1$Dim.",1:myncp1,",na.rm=T)",collapse="+")))
+
+cwexec(paste0("kz=dd1 %>% group_by(clust) %>% summarise(nb=n(),",paste0("Dim",1:myncp1,"=var(Dim.",1:myncp1,",na.rm=T)",collapse=","),")"))
+
+cwexec(paste0("kz$Dim=",paste0("(kz$nb*kz$Dim",1:myncp,"/sum(kz$nb))",collapse="+")))
+
+
+ax=paste(paste0(nn,"=mean(",nn,",na.rm=T)"),collapse=",")
+
+cwexec(paste0("zz2=zz %>% group_by (clust) %>% summarise(nb=n(),",ax,")"))
+
+varexpl150rg2=1-sum(kz$Dim,na.rm=T)/kk
+
+
+impr("aff_idk_clust_150",out,"x150")
+impr("aff_idk_clust_41",out,"x41")
+
+x41$c150=x150$clust[match(x41$idk,x150$idk)]
+
+z=x41 %>%
+  group_by(c150,clust) %>%
+  summarise (nb=n())
+
+zz=x41 %>%
+  group_by(clust,c150) %>%
+  summarise (nb=n())
+
+
+a=spread(z,clust,nb)
+
+expo(a,out)
+*
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+source("E:/Référentiel/Pgm/cw_macros.r")
+source("E:/Référentiel/Pgm/Enrichissement.R")
+source("E:/Référentiel/Pgm/Blanchiment.R")
+
+options(scipen=999)
+car="E:/Référentiel/ref/GEO/Carreaux/tables"
+out="E:/Equipe Etudes et Connaissance Client/Mouhamadou/typo_carreaux_2015 USED/out"
+int_loc= "E:/Equipe Etudes et Connaissance Client/Mouhamadou/Impact_typo_carreaux NOT USED/new typo/int_files"
+refcar="E:/Référentiel/TYPOS/carreau2015"
+
+cwusepack("FactoMineR")
+cwusepack("factoextra")
+
+setwd(car)
+
+out= "C:/Users/mka/Documents/new typo/out"
+  
+##### suppression de certaines variables
+##### suppression de certaines variables
+impr("echant",out)
+impr("echant1",out)
+impr("effidk",out)
+impr("dd1",out)
+impr("dd2",out)
+
+gc()
+
+echant$iris=NULL
+echant$idINSPIRE=NULL
+echant$INSEE=NULL
+echant$iris=NULL
+echant$tuu0=NULL
+echant$tuu1=NULL
+echant$tuu2=NULL
+echant$tuu3=NULL
+echant$tuu4=NULL
+echant$tuu5=NULL
+echant$tuu6=NULL
+echant$tuu7=NULL
+echant$tuu8=NULL
+echant$alea=NULL
+echant$alimp=NULL
+echant$suphypp=NULL
+echant$id=NULL
+echant$x=NULL
+echant$y=NULL
+echant$proxalim=NULL
+echant$habil2=NULL
+
+
+
+echant1$iris=NULL
+echant1$idINSPIRE=NULL
+echant1$INSEE=NULL
+echant1$iris=NULL
+echant1$tuu0=NULL
+echant1$tuu1=NULL
+echant1$tuu2=NULL
+echant1$tuu3=NULL
+echant1$tuu4=NULL
+echant1$tuu5=NULL
+echant1$tuu6=NULL
+echant1$tuu7=NULL
+echant1$tuu8=NULL
+echant1$alea=NULL
+echant1$alimp=NULL
+echant1$suphypp=NULL
+echant1$id=NULL
+echant1$x=NULL
+echant1$y=NULL
+echant1$proxalim=NULL
+echant1$habil2=NULL
+
+
+echant=..drop(echant,"Dim:")
+
+
+da=echant[,-15]
+
+myncp=12
+
+
+res.pca = PCA(da, scale.unit=T, ncp=myncp, graph=T)
+res.pca$eig
+
+str(res.pca)
+res.pca$var$coord
+res.pca$ind$coord
+pca=as.data.frame(res.pca$ind$coord)
+names(pca)=gsub(" ","",names(pca))
+
+zz=cbind(da,pca)
+nn=names(da)
+
+vars=paste(nn,collapse="+")
+
+cwexec(paste0("mod",1:myncp,"=lm(Dim.",1:myncp," ~ ",vars,", data=zz)"))
+
+#for (n in nn) {
+#  print (n)
+#  print(cwrens(dd2[,n]))
+#}
+
+for (i in 1:myncp) {
+  
+cwexec(paste0("mod=mod",i))
+
+a=as.data.frame(mod$coefficients)
+names(a)="coef"
+a$var=row.names(a)
+a$form=paste0("(",a$coef,")*dd2$",a$var)
+a$form[a$var=="(Intercept)"]=a$coef[a$var=="(Intercept)"]
+form=paste0("dd2$Dim.",i,"=",paste(a$form,collapse="+"))
+
+cwexec(form)
+
+}
+Sys.time()
+dist_mat <- dist(pca, method = 'euclidean')
+Sys.time()
+
+hclust_avg <- hclust(dist_mat, method = 'average')
+plot(hclust_avg)
+Sys.time()
+
+rm(dist_mat)
+
+
+gc()
+
+dz=..keep(zz,"Dim:")
+
+varexpl=numeric()
+
+for (ka in 1:200) {
+
+    print(ka)
+  
+    zz$clust <- cutree(hclust_avg, k = ka)
+    
+    cwexec(paste0("kk=",paste0("var(zz$Dim.",1:myncp,")",collapse="+")))
+    
+    cwexec(paste0("kz=zz %>% group_by(clust) %>% summarise(nb=n(),",paste0("Dim",1:myncp,"=var(Dim.",1:myncp,")",collapse=","),")"))
+    
+    cwexec(paste0("kz$Dim=",paste0("(kz$nb*kz$Dim",1:myncp,"/sum(kz$nb))",collapse="+")))
+    
+    
+    ax=paste(paste0(nn,"=mean(",nn,",na.rm=T)"),collapse=",")
+    
+    cwexec(paste0("zz2=zz %>% group_by (clust) %>% summarise(nb=n(),",ax,")"))
+    
+    varexpl[ka]=1-sum(kz$Dim,na.rm=T)/kk
+
+}
+
+
+
+nbc=1:length(varexpl)
+
+
+vstat=cbind.data.frame(nbc,varexpl)
+
+expo(vstat,out)
+
+
+zz$clust <- cutree(hclust_avg, k = 150)
+ax=paste(paste0(nn,"=mean(",nn,",na.rm=T)"),collapse=",")
+
+cwexec(paste0("zz2=zz %>% group_by (clust) %>% summarise(nb=n(),",ax,")"))
+
+zz3=zz2[zz2$nb>15,]
+
+ax=paste(paste0("xDim.",1:myncp,"=mean(Dim.",1:myncp,",na.rm=T)"),collapse=",")
+
+cwexec(paste0("zz4=zz %>% group_by (clust) %>% summarise(nb=n(),",ax,")"))
+
+zz4=zz4[zz4$nb>15,]
+
+
+dd2$un=1
+zz4$un=1
+
+dim=paste0("Dim.",1:myncp)
+dd3=dd2[,c("un","idINSPIRE",dim)]
+dd3=as.data.table(dd3)
+
+dim=paste0("xDim.",1:myncp)
+zz5=zz4[,c("un","clust",dim)]
+zz5=as.data.table(zz5)
+
+
+
+tdeb=Sys.time()
+
+for (i in 0:6) {
+  
+  print(i)
+        
+        mdd=dd3[(i*100000+1):min((i+1)*100000,nrow(dd3)),]
+        
+        
+        pcart<-setkey(zz5,un)[mdd,allow.cartesian=TRUE]
+        
+        cwexec(paste0("pcart$dist=(",paste0("(pcart$Dim.",1:myncp,"-pcart$xDim.",1:myncp,")^2",collapse="+"),")"))
+        
+        pcart=pcart[,c("idINSPIRE","clust","dist")]
+        gc()
+        
+        v=pcart %>%
+            group_by(idINSPIRE) %>%
+            mutate(dmin=min(dist)) %>%
+            filter(dist==dmin) %>%
+            select(-dist,-dmin)
+        
+        rm(pcart)
+        gc()
+        
+        if (i==0) { affclust=v } else {affclust=rbind(affclust,v)}
+        
+  
+}
+
+
+tfin=Sys.time()
+tfin-tdeb
+
+
+max((table(affclust$clust)))
+min(cwmix(affclust$clust)$mix)
+
+dd1$clust=affclust$clust[match(dd1$idINSPIRE,affclust$idINSPIRE)]
+dd1$men=effidk$men[match(dd1$idk,effidk$idk)]
+
+x=dd1[,c("idk","clust")]
+expr("x",out,"aff_idk_clust_150")
+
+nd=names(dd1)[3:31]
+nd=nd[nd!="INSEE"]
+nd=nd[nd!="x"]
+nd=nd[nd!="idk"]
+nd=nd[nd!="y"]
+nd=nd[nd!="id"]
+nd=nd[nd!="alea"]
+nd=nd[nd!="alimp"]
+nd=nd[nd!="proxalim"]
+nd=nd[nd!="suphypp"]
+nd=nd[nd!="tuu"]
+
+
+#quantile(dd$rev_win,0:20*0.05)
+#quantile(dd$pct_propr,0:20*0.05)
+
+
+ax=paste(paste0(nd,"_moy=mean(",nd,",na.rm=T)"),collapse=",")
+
+cwexec(paste0("moyclus=dd1 %>% group_by(clust) %>% summarise(cnb=n(),cnbmen=sum(men),",ax,")"))
+
+
+
+ax=paste(paste0(nd,"_q95=quantile(",nd,",0.95,na.rm=T)"),collapse=",")
+
+cwexec(paste0("q95clus=dd1 %>% group_by(clust) %>% summarise(",ax,")"))
+
+
+ax=paste(paste0(nd,"_05=quantile(",nd,",0.05,na.rm=T)"),collapse=",")
+
+cwexec(paste0("q05clus=dd1 %>% group_by(clust) %>% summarise(",ax,")"))
+
+
+#ax=paste(paste0(nd,"_mn=min(",nd,",na.rm=T)"),collapse=",")
+
+#cwexec(paste0("minclus=dd %>% group_by(clust) %>% summarise(nb=n(),",ax,")"))
+
+
+#ax=paste(paste0(nd,"_mx=max(",nd,",na.rm=T)"),collapse=",")
+
+#cwexec(paste0("maxclus=dd %>% group_by(clust) %>% summarise(nb=n(),",ax,")"))
+
+statclus=merge(moyclus,q05clus,"clust")
+statclus=merge(statclus,q95clus,"clust")
+a=names(statclus)
+a=a[!grepl("^tuu[0-9]*_05",a)]
+a=a[!grepl("^tuu[0-9]*_q95",a)]
+
+
+statclus=statclus[,a]
+statclus=statclus[,order(names(statclus))]
+
+expo("statclus",out,"statclus150rg2_maj2")
+#expo("maxclus",out)
+#expo("q05clus",out)
+#expo("q95clus",out)
+
+
+
+da1=echant1[,-15]
+
+myncp1=12
+
+
+res.pca = PCA(da1, scale.unit=T, ncp=myncp1, graph=T)
+res.pca$eig
+
+str(res.pca)
+res.pca$var$coord
+res.pca$ind$coord
+pca=as.data.frame(res.pca$ind$coord)
+names(pca)=gsub(" ","",names(pca))
+
+zz1=cbind(da1,pca)
+nn=names(da1)
+
+vars=paste(nn,collapse="+")
+
+cwexec(paste0("mod",1:myncp1,"=lm(Dim.",1:myncp1," ~ ",vars,", data=zz1)"))
+
+#for (n in nn) {
+#  print (n)
+#  print(cwrens(dd2[,n]))
+#}
+
+for (i in 1:myncp1) {
+  
+  cwexec(paste0("mod=mod",i))
+  
+  a=as.data.frame(mod$coefficients)
+  names(a)="coef"
+  a$var=row.names(a)
+  a$form=paste0("(",a$coef,")*dd1$",a$var)
+  a$form[a$var=="(Intercept)"]=a$coef[a$var=="(Intercept)"]
+  form=paste0("dd1$Dim.",i,"=",paste(a$form,collapse="+"))
+  
+  cwexec(form)
+  
+}
+
+
+var(dd1$Dim.1,na.rm=T)
+
+cwexec(paste0("kk=",paste0("var(dd1$Dim.",1:myncp1,",na.rm=T)",collapse="+")))
+
+cwexec(paste0("kz=dd1 %>% group_by(clust) %>% summarise(nb=n(),",paste0("Dim",1:myncp1,"=var(Dim.",1:myncp1,",na.rm=T)",collapse=","),")"))
+
+cwexec(paste0("kz$Dim=",paste0("(kz$nb*kz$Dim",1:myncp,"/sum(kz$nb))",collapse="+")))
+
+
+ax=paste(paste0(nn,"=mean(",nn,",na.rm=T)"),collapse=",")
+
+cwexec(paste0("zz2=zz %>% group_by (clust) %>% summarise(nb=n(),",ax,")"))
+
+varexpl150rg2=1-sum(kz$Dim,na.rm=T)/kk
+
+
+impr("aff_idk_clust_150",out,"x150")
+impr("aff_idk_clust_41",out,"x41")
+
+x41$c150=x150$clust[match(x41$idk,x150$idk)]
+
+z=x41 %>%
+  group_by(c150,clust) %>%
+  summarise (nb=n())
+
+zz=x41 %>%
+  group_by(clust,c150) %>%
+  summarise (nb=n())
+
+
+a=spread(z,clust,nb)
+
+expo(a,out)
+
+
+
+
+
+
+
+
+
+
+
+
+source("E:/Référentiel/Pgm/cw_macros.r")
+source("E:/Référentiel/Pgm/Enrichissement.R")
+source("E:/Référentiel/Pgm/Blanchiment.R")
+
+car="E:/Equipe Etudes et Connaissance Client/Mouhamadou/Impact_typo_carreaux/new typo/table"
+out="E:/Equipe Etudes et Connaissance Client/Mouhamadou/Impact_typo_carreaux/new typo/out"
+options(scipen=999)
+
+
+cwusepack("FactoMineR")
+cwusepack("factoextra")
+
+setwd(car)
+refcar="E:/Equipe Etudes et Connaissance Client/Mouhamadou/Impact_typo_carreaux"
+
+cwusepack("FactoMineR")
+cwusepack("factoextra")
+
+setwd(car)
+
+impr("aff_idk_clust_150",out,"x150")
+
+
+imp("statclus150rg2_maj2",out,"statclus")
+
+da=statclus[,-(1:3)]
+
+da=..keep(da,":moy")
+nd=names(da)
+
+nd=nd[!(nd %in% c("idINSPIRE","iris","idk","alea","x","y","id"))]
+
+nr=nrow(da)
+
+ax=paste(paste0(nd,"=rank(",nd,")/nr"),collapse=",")
+
+cwexec(paste0("dd2=da %>% mutate(",ax,")"))
+
+myncp=12
+
+res.pca = PCA(dd2, scale.unit=T, ncp=myncp, graph=T)
+res.pca$eig
+
+
+pca=as.data.frame(res.pca$ind$coord)
+names(pca)=gsub(" ","",names(pca))
+
+zz=cbind(dd2,pca)
+
+
+Sys.time()
+dist_mat <- dist(pca, method = 'euclidean')
+Sys.time()
+
+hclust_avg <- hclust(dist_mat, method = 'average')
+#plot(hclust_avg)
+Sys.time()
+
+
+varexpl=numeric()
+for (ka in 1:91) {
+  
+  print(ka)
+  
+  zz$clust <- cutree(hclust_avg, k = ka)
+  
+  cwexec(paste0("kk=",paste0("var(zz$Dim.",1:myncp,")",collapse="+")))
+  
+  cwexec(paste0("kz=zz %>% group_by(clust) %>% summarise(nb=n(),",paste0("Dim",1:myncp,"=var(Dim.",1:myncp,")",collapse=","),")"))
+  
+  cwexec(paste0("kz$Dim=",paste0("(kz$nb*kz$Dim",1:myncp,"/sum(kz$nb))",collapse="+")))
+  
+  
+  ax=paste(paste0(nd,"=mean(",nd,",na.rm=T)"),collapse=",")
+  
+  cwexec(paste0("zz2=zz %>% group_by (clust) %>% summarise(nb=n(),",ax,")"))
+  
+  varexpl[ka]=1-sum(kz$Dim,na.rm=T)/kk
+  
+}
+
+
+
+nbc=1:length(varexpl)
+
+
+vstat=cbind.data.frame(nbc,varexpl)
+
+
+expo(vstat,out,"vstat_2")
+
+
+statclus$clust9 <- cutree(hclust_avg, k = 9)
+statclus$clust21 <- cutree(hclust_avg, k = 21)
+
+a=statclus %>%
+  group_by(clust21) %>%
+  summarise (nb=n(),nbcar=sum(cnb),cnbmen=sum(cnbmen))
+
+
+
+a2=statclus %>%
+  group_by(clust9) %>%
+  summarise (nb=n(),nbcar=sum(cnb),cnbmen=sum(cnbmen))
+
+expo(statclus,out,"s921")
+
+x150$clust9=statclus$clust9[match(x150$clust,statclus$clust)]
+x150$clust21=statclus$clust21[match(x150$clust,statclus$clust)]
+
+impr("doncar",refcar)
+
+doncar=doncar[,c("idINSPIRE","idk")]
+
+typo_carreaux=merge(doncar,x150,by="idk",all.x=T,all.y=F)
+
+expo("typo_carreaux",refcar)
+expr("typo_carreaux",refcar)
+
+
+
+
+
+
+
+source("E:/Référentiel/Pgm/cw_macros.r")
+source("E:/Référentiel/Pgm/Enrichissement.R")
+source("E:/Référentiel/Pgm/Blanchiment.R")
+
+car="E:/Equipe Etudes et Connaissance Client/Mouhamadou/Impact_typo_carreaux/new typo/table"
+out="E:/Equipe Etudes et Connaissance Client/Mouhamadou/Impact_typo_carreaux/new typo/out"
+options(scipen=999)
+
+
+cwusepack("FactoMineR")
+cwusepack("factoextra")
+
+setwd(car)
+refcar="E:/Equipe Etudes et Connaissance Client/Mouhamadou/Impact_typo_carreaux"
+
+cwusepack("FactoMineR")
+cwusepack("factoextra")
+
+setwd(car)
+
+impr("aff_idk_clust_150",out,"x150")
+
+
+imp("statclus150rg2_maj2",out,"statclus")
+
+da=statclus[,-(1:3)]
+
+da=..keep(da,":moy")
+nd=names(da)
+
+nd=nd[!(nd %in% c("idINSPIRE","iris","idk","alea","x","y","id"))]
+
+nr=nrow(da)
+
+ax=paste(paste0(nd,"=rank(",nd,")/nr"),collapse=",")
+
+cwexec(paste0("dd2=da %>% mutate(",ax,")"))
+
+myncp=12
+
+res.pca = PCA(dd2, scale.unit=T, ncp=myncp, graph=T)
+res.pca$eig
+
+
+pca=as.data.frame(res.pca$ind$coord)
+names(pca)=gsub(" ","",names(pca))
+
+zz=cbind(dd2,pca)
+
+
+Sys.time()
+dist_mat <- dist(pca, method = 'euclidean')
+Sys.time()
+
+hclust_avg <- hclust(dist_mat, method = 'average')
+#plot(hclust_avg)
+Sys.time()
+
+
+varexpl=numeric()
+for (ka in 1:91) {
+  
+  print(ka)
+  
+  zz$clust <- cutree(hclust_avg, k = ka)
+  
+  cwexec(paste0("kk=",paste0("var(zz$Dim.",1:myncp,")",collapse="+")))
+  
+  cwexec(paste0("kz=zz %>% group_by(clust) %>% summarise(nb=n(),",paste0("Dim",1:myncp,"=var(Dim.",1:myncp,")",collapse=","),")"))
+  
+  cwexec(paste0("kz$Dim=",paste0("(kz$nb*kz$Dim",1:myncp,"/sum(kz$nb))",collapse="+")))
+  
+  
+  ax=paste(paste0(nd,"=mean(",nd,",na.rm=T)"),collapse=",")
+  
+  cwexec(paste0("zz2=zz %>% group_by (clust) %>% summarise(nb=n(),",ax,")"))
+  
+  varexpl[ka]=1-sum(kz$Dim,na.rm=T)/kk
+  
+}
+
+
+
+nbc=1:length(varexpl)
+
+
+vstat=cbind.data.frame(nbc,varexpl)
+
+
+expo(vstat,out,"vstat_2")
+
+
+statclus$clust9 <- cutree(hclust_avg, k = 9)
+statclus$clust21 <- cutree(hclust_avg, k = 21)
+
+a=statclus %>%
+  group_by(clust21) %>%
+  summarise (nb=n(),nbcar=sum(cnb),cnbmen=sum(cnbmen))
+
+
+
+a2=statclus %>%
+  group_by(clust9) %>%
+  summarise (nb=n(),nbcar=sum(cnb),cnbmen=sum(cnbmen))
+
+expo(statclus,out,"s921")
+
+x150$clust9=statclus$clust9[match(x150$clust,statclus$clust)]
+x150$clust21=statclus$clust21[match(x150$clust,statclus$clust)]
+
+impr("doncar",refcar)
+
+doncar=doncar[,c("idINSPIRE","idk")]
+
+typo_carreaux=merge(doncar,x150,by="idk",all.x=T,all.y=F)
+
+expo("typo_carreaux",refcar)
+expr("typo_carreaux",refcar)
+
+
+
+
+
+source("E:/Référentiel/Pgm/cw_macros.r")
+source("E:/Référentiel/Pgm/Enrichissement.R")
+source("E:/Référentiel/Pgm/Blanchiment.R")
+
+car="E:/Référentiel/ref/GEO/Carreaux/tables"
+out="E:/Equipe Etudes et Connaissance Client/Mouhamadou/typo_carreaux_2015 USED/out"
+int_loc= "E:/Equipe Etudes et Connaissance Client/Mouhamadou/Impact_typo_carreaux NOT USED/new typo/int_files"
+refcar="E:/Référentiel/TYPOS/carreau2015"
+options(scipen=999)
+
+
+cwusepack("FactoMineR")
+cwusepack("factoextra")
+
+
+impr("typo_carreaux",refcar,"typo_carreaux_vff")
+
+impr("dd1",out)
+doncar=impr("df_doncar_full_grouperec_v2",int_loc,"doncar") 
+idkmen=doncar[!duplicated(doncar$idk),c("idk","sum_Men")]
+idktyp=typo_carreaux_vff[!duplicated(typo_carreaux_vff$idk),]
+
+
+dd1$men=idkmen$sum_Men[match(dd1$idk,idkmen$idk)]
+dd1$clust=idktyp$clust[match(dd1$idk,idktyp$idk)]
+dd1$clust9=idktyp$clust9[match(dd1$idk,idktyp$idk)]
+dd1$clust21=idktyp$clust21[match(dd1$idk,idktyp$idk)]
+
+a=names(dd1[1:10,which(sapply(dd1,is.numeric))])
+a=a[! (a %in% c("alea","clust","clust9","clust21","sum_Men","iris","INSEE","idk"))]
+
+
+
+
+cwexec(paste("d9=dd1 %>%  group_by(clust9) %>% summarise(cmen=sum(men),",paste(paste0("moy_",a,"=weighted.mean(",a,",men,na.rm=T)"),collapse=","),")"))
+cwexec(paste("d21=dd1 %>%  group_by(clust21) %>% summarise(cmen=sum(men),",paste(paste0("moy_",a,"=weighted.mean(",a,",men,na.rm=T)"),collapse=","),")"))
+cwexec(paste("dmoy=dd1 %>% summarise(xmen=sum(men),",paste(paste0("x_",a,"=weighted.mean(",a,",men,na.rm=T)"),collapse=","),")"))
+cwexec(paste("dsd=dd1 %>% summarise(xmen=sum(men),",paste(paste0("x_",a,"=sd(",a,",na.rm=T)"),collapse=","),")"))
+
+cwexec(paste("d123=dd1 %>%  group_by(clust) %>% summarise(cmen=sum(men),",paste(paste0("moy_",a,"=weighted.mean(",a,",men,na.rm=T)"),collapse=","),")"))
+
+
+expo(d9,out,"des9")
+expo(d21,out,"desc21")
+expo(d123,out,"desc123")
+expo(dmoy,out)
+expo(dsd,out)
+
